@@ -18,6 +18,7 @@ const APIBase = "http://api.dirble.com/v2/"
 
 type Dirble struct {
 	client *http.Client
+	token string
 }
 
 type Thumb struct {
@@ -47,10 +48,13 @@ type Station struct {
 
 type Stations []Station
 
-func New(rt http.RoundTripper) *Dirble {
-	return &Dirble{client: &http.Client{
-		Transport: rt,
-	}}
+func New(rt http.RoundTripper, token string) *Dirble {
+	return &Dirble{
+		client: &http.Client{
+			Transport: rt,
+		},
+		token: token
+	}
 }
 
 func (d *Dirble) Stations(page, perPage, offset *int) (*Stations, error) {
@@ -61,6 +65,7 @@ func (d *Dirble) Stations(page, perPage, offset *int) (*Stations, error) {
 	}
 	u.Path += "stations"
 	q := u.Query()
+	q.Set("token", d.token)
 	if page != nil {
 		q.Set("page", strconv.Itoa(*page))
 	}
@@ -81,6 +86,7 @@ func (d *Dirble) Stations(page, perPage, offset *int) (*Stations, error) {
 	}
 	return &s, nil
 }
+
 func (d *Dirble) Station(id int)                       {}
 func (d *Dirble) StationSongHistory(id int)            {}
 func (d *Dirble) StationSimilar(id int)                {}
