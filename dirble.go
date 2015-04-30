@@ -99,6 +99,15 @@ type Station struct {
 	StationSongs []StationSong `json:"station_songs"`
 }
 
+type Categories []Category
+
+type CategoryTree struct {
+	Children []Category
+	Category
+}
+
+type CategoryStations []Station
+
 func New(rt http.RoundTripper, token string) *Dirble {
 	return &Dirble{
 		client: &http.Client{
@@ -106,6 +115,20 @@ func New(rt http.RoundTripper, token string) *Dirble {
 		},
 		token: token,
 	}
+}
+
+func (d *Dirble) getStations(url string) (*Stations, error) {
+	var err error
+	var content []byte
+	if content, err = d.fetchURL(url); err != nil {
+		return nil, err
+	}
+	var s Stations
+	if err = json.Unmarshal(content, &s); err != nil {
+		return nil, err
+	}
+	return &s, nil
+
 }
 
 func (d *Dirble) Stations(page, perPage, offset *int) (*Stations, error) {
@@ -127,15 +150,7 @@ func (d *Dirble) Stations(page, perPage, offset *int) (*Stations, error) {
 		q.Set("offset", strconv.Itoa(*offset))
 	}
 	u.RawQuery = q.Encode()
-	var content []byte
-	if content, err = d.fetchURL(u.String()); err != nil {
-		return nil, err
-	}
-	var s Stations
-	if err = json.Unmarshal(content, &s); err != nil {
-		return nil, err
-	}
-	return &s, nil
+	return d.getStations(u.String())
 }
 
 func (d *Dirble) Station(id int) (*Station, error) {
@@ -159,12 +174,117 @@ func (d *Dirble) Station(id int) (*Station, error) {
 	return &s, nil
 }
 
-func (d *Dirble) StationSongHistory(id int)            {}
-func (d *Dirble) StationSimilar(id int)                {}
-func (d *Dirble) Categories()                          {}
-func (d *Dirble) CategoriesPrimary()                   {}
-func (d *Dirble) CategoriesTree()                      {}
-func (d *Dirble) CategoryStations(id int)              {}
+func (d *Dirble) StationSongHistory(id int) {}
+
+func (d *Dirble) StationSimilar(id int) (*Stations, error) {
+	var err error
+	var u *url.URL
+	if u, err = url.Parse(APIBase); err != nil {
+		return nil, err
+	}
+	u.Path += "stations/" + strconv.Itoa(id) + "/similar"
+	q := u.Query()
+	q.Set("token", d.token)
+	u.RawQuery = q.Encode()
+	return d.getStations(u.String())
+}
+
+func (d *Dirble) Categories() (*Categories, error) {
+	var err error
+	var u *url.URL
+	if u, err = url.Parse(APIBase); err != nil {
+		return nil, err
+	}
+	u.Path += "categories"
+	q := u.Query()
+	q.Set("token", d.token)
+	u.RawQuery = q.Encode()
+	var content []byte
+	if content, err = d.fetchURL(u.String()); err != nil {
+		return nil, err
+	}
+	var c Categories
+	if err = json.Unmarshal(content, &c); err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+func (d *Dirble) CategoriesPrimary() (*Categories, error) {
+	var err error
+	var u *url.URL
+	if u, err = url.Parse(APIBase); err != nil {
+		return nil, err
+	}
+	u.Path += "categories/primary"
+	q := u.Query()
+	q.Set("token", d.token)
+	u.RawQuery = q.Encode()
+	var content []byte
+	if content, err = d.fetchURL(u.String()); err != nil {
+		return nil, err
+	}
+	var c Categories
+	if err = json.Unmarshal(content, &c); err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+func (d *Dirble) CategoriesTree() (*CategoryTree, error) {
+	var err error
+	var u *url.URL
+	if u, err = url.Parse(APIBase); err != nil {
+		return nil, err
+	}
+	u.Path += "categories/tree"
+	q := u.Query()
+	q.Set("token", d.token)
+	u.RawQuery = q.Encode()
+	var content []byte
+	if content, err = d.fetchURL(u.String()); err != nil {
+		return nil, err
+	}
+	var ct CategoryTree
+	if err = json.Unmarshal(content, &ct); err != nil {
+		return nil, err
+	}
+	return &ct, nil
+}
+
+func (d *Dirble) CategoryStations(id int, all bool, page, perPage, offset *int) (*CategoryStations, error) {
+	var err error
+	var u *url.URL
+	if u, err = url.Parse(APIBase); err != nil {
+		return nil, err
+	}
+	u.Path += "category/" + strconv.Itoa(id) + "/stations"
+	q := u.Query()
+	q.Set("token", d.token)
+	if all {
+		q.Set("all", "1")
+	}
+	if page != nil {
+		q.Set("page", strconv.Itoa(*page))
+	}
+	if perPage != nil {
+		q.Set("per_page", strconv.Itoa(*perPage))
+	}
+	if offset != nil {
+		q.Set("offset", strconv.Itoa(*offset))
+	}
+	u.RawQuery = q.Encode()
+	var content []byte
+	if content, err = d.fetchURL(u.String()); err != nil {
+		return nil, err
+	}
+	var cs CategoryStations
+	if err = json.Unmarshal(content, &cs); err != nil {
+		return nil, err
+	}
+	return &cs, nil
+}
+
 func (d *Dirble) CategoryChilds(id int)                {}
 func (d *Dirble) Countries()                           {}
 func (d *Dirble) CountriesStations(code string)        {}
