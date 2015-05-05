@@ -84,6 +84,8 @@ type StationSong struct {
 	Date      time.Time
 }
 
+type StationSongs []StationSong
+
 type Station struct {
 	ID           int
 	Name         string
@@ -96,7 +98,7 @@ type Station struct {
 	Website      string
 	Streams      []Stream
 	Categories   []Category
-	StationSongs []StationSong `json:"station_songs"`
+	StationSongs StationSongs `json:"station_songs"`
 }
 
 type Categories []Category
@@ -174,7 +176,26 @@ func (d *Dirble) Station(id int) (*Station, error) {
 	return &s, nil
 }
 
-func (d *Dirble) StationSongHistory(id int) {}
+func (d *Dirble) StationSongHistory(id int) (*StationSongs, error) {
+	var err error
+	var u *url.URL
+	if u, err = url.Parse(APIBase); err != nil {
+		return nil, err
+	}
+	u.Path += "stations/" + strconv.Itoa(id) + "/song_history"
+	q := u.Query()
+	q.Set("token", d.token)
+	u.RawQuery = q.Encode()
+	var content []byte
+	if content, err = d.fetchURL(u.String()); err != nil {
+		return nil, err
+	}
+	var ss StationSongs
+	if err = json.Unmarshal(content, &ss); err != nil {
+		return nil, err
+	}
+	return &ss, nil
+}
 
 func (d *Dirble) StationSimilar(id int) (*Stations, error) {
 	var err error
