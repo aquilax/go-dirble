@@ -21,6 +21,11 @@ type Dirble struct {
 	token  string
 }
 
+type Timestamped struct {
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 type Thumb struct {
 	URL *string
 }
@@ -40,10 +45,9 @@ type StationItem struct {
 	Website            string
 	CurrentSongReverse *string `json:"currentsong_reverse"`
 	Image              Image
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
 	Slug               string
 	DisableSongChecks  bool
+	Timestamped
 }
 
 type Stations []StationItem
@@ -54,11 +58,10 @@ type Stream struct {
 	Bitrate      int
 	ContenType   string
 	Status       int
-	StationId    int       `json:"Station_id"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	StationId    int `json:"Station_id"`
 	Timedout     bool
 	EmptyCounter int
+	Timestamped
 }
 
 type Category struct {
@@ -66,11 +69,10 @@ type Category struct {
 	Title       string
 	Description string
 	URLId       interface{}
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
 	Slug        string
 	Ancestry    string
 	Position    interface{}
+	Timestamped
 }
 
 type StationSong struct {
@@ -85,6 +87,7 @@ type StationSong struct {
 }
 
 type StationSongs []StationSong
+type Categories []Category
 
 type Station struct {
 	ID           int
@@ -97,18 +100,37 @@ type Station struct {
 	Slug         string
 	Website      string
 	Streams      []Stream
-	Categories   []Category
+	Categories   Categories
 	StationSongs StationSongs `json:"station_songs"`
 }
 
-type Categories []Category
-
 type CategoryTree struct {
-	Children []Category
+	Children Categories
 	Category
 }
 
 type CategoryStations []Station
+
+type Country struct {
+	ID          int
+	CountryCode string `json:"country_code"`
+	ContinentID int    `json:"Continent_id"`
+	Timestamped
+}
+
+type Countries []Country
+
+type Continent struct {
+	ID       int
+	Name     string
+	Slug     string
+	LegacyID int `json:"legacy_id"`
+	Timestamped
+}
+
+type Continents []Continent
+
+type SearchResults []Station
 
 func New(rt http.RoundTripper, token string) *Dirble {
 	return &Dirble{
@@ -117,6 +139,19 @@ func New(rt http.RoundTripper, token string) *Dirble {
 		},
 		token: token,
 	}
+}
+
+func (d *Dirble) fetchURL(url string) ([]byte, error) {
+	var err error
+	var resp *http.Response
+	if resp, err = d.client.Get(url); err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP Error: %d", resp.StatusCode)
+	}
+	return ioutil.ReadAll(resp.Body)
 }
 
 func (d *Dirble) getStations(url string) (*Stations, error) {
@@ -130,7 +165,6 @@ func (d *Dirble) getStations(url string) (*Stations, error) {
 		return nil, err
 	}
 	return &s, nil
-
 }
 
 func (d *Dirble) Stations(page, perPage, offset *int) (*Stations, error) {
@@ -306,22 +340,141 @@ func (d *Dirble) CategoryStations(id int, all bool, page, perPage, offset *int) 
 	return &cs, nil
 }
 
-func (d *Dirble) CategoryChilds(id int)                {}
-func (d *Dirble) Countries()                           {}
-func (d *Dirble) CountriesStations(code string)        {}
-func (d *Dirble) Continents()                          {}
-func (d *Dirble) ContinentsCountries(continent string) {}
-func (d *Dirble) Search(query string)                  {}
-
-func (d *Dirble) fetchURL(url string) ([]byte, error) {
+func (d *Dirble) CategoryChilds(id int) (*Categories, error) {
 	var err error
-	var resp *http.Response
-	if resp, err = d.client.Get(url); err != nil {
+	var u *url.URL
+	if u, err = url.Parse(APIBase); err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP Error: %d", resp.StatusCode)
+	u.Path += "category/" + strconv.Itoa(id) + "/childs"
+	q := u.Query()
+	q.Set("token", d.token)
+	u.RawQuery = q.Encode()
+	var content []byte
+	if content, err = d.fetchURL(u.String()); err != nil {
+		return nil, err
 	}
-	return ioutil.ReadAll(resp.Body)
+	var c Categories
+	if err = json.Unmarshal(content, &c); err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+func (d *Dirble) Countries() (*Countries, error) {
+	var err error
+	var u *url.URL
+	if u, err = url.Parse(APIBase); err != nil {
+		return nil, err
+	}
+	u.Path += "countries"
+	q := u.Query()
+	q.Set("token", d.token)
+	u.RawQuery = q.Encode()
+	var content []byte
+	if content, err = d.fetchURL(u.String()); err != nil {
+		return nil, err
+	}
+	var c Countries
+	if err = json.Unmarshal(content, &c); err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+func (d *Dirble) CountriesStations(code string, id int, all bool, page, perPage, offset *int) (*CategoryStations, error) {
+	var err error
+	var u *url.URL
+	if u, err = url.Parse(APIBase); err != nil {
+		return nil, err
+	}
+	u.Path += "countries/" + code + "/stations"
+	q := u.Query()
+	q.Set("token", d.token)
+	if all {
+		q.Set("all", "1")
+	}
+	if page != nil {
+		q.Set("page", strconv.Itoa(*page))
+	}
+	if perPage != nil {
+		q.Set("per_page", strconv.Itoa(*perPage))
+	}
+	if offset != nil {
+		q.Set("offset", strconv.Itoa(*offset))
+	}
+	u.RawQuery = q.Encode()
+	var content []byte
+	if content, err = d.fetchURL(u.String()); err != nil {
+		return nil, err
+	}
+	var cs CategoryStations
+	if err = json.Unmarshal(content, &cs); err != nil {
+		return nil, err
+	}
+	return &cs, nil
+}
+
+func (d *Dirble) Continents() (*Continents, error) {
+	var err error
+	var u *url.URL
+	if u, err = url.Parse(APIBase); err != nil {
+		return nil, err
+	}
+	u.Path += "continents"
+	q := u.Query()
+	q.Set("token", d.token)
+	u.RawQuery = q.Encode()
+	var content []byte
+	if content, err = d.fetchURL(u.String()); err != nil {
+		return nil, err
+	}
+	var c Continents
+	if err = json.Unmarshal(content, &c); err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+func (d *Dirble) ContinentsCountries(continentId int) (*Countries, error) {
+	var err error
+	var u *url.URL
+	if u, err = url.Parse(APIBase); err != nil {
+		return nil, err
+	}
+	u.Path += "continents/" + strconv.Itoa(continentId) + "/countries"
+	q := u.Query()
+	q.Set("token", d.token)
+	u.RawQuery = q.Encode()
+	var content []byte
+	if content, err = d.fetchURL(u.String()); err != nil {
+		return nil, err
+	}
+	var c Countries
+	if err = json.Unmarshal(content, &c); err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+func (d *Dirble) Search(query string, page *int) (*SearchResults, error) {
+	var err error
+	var u *url.URL
+	if u, err = url.Parse(APIBase); err != nil {
+		return nil, err
+	}
+	u.Path += "search/" + query
+	q := u.Query()
+	q.Set("token", d.token)
+
+	u.RawQuery = q.Encode()
+	var content []byte
+	if content, err = d.fetchURL(u.String()); err != nil {
+		return nil, err
+	}
+	var sr SearchResults
+	if err = json.Unmarshal(content, &sr); err != nil {
+		return nil, err
+	}
+	return &sr, nil
 }
