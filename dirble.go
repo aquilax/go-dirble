@@ -382,7 +382,7 @@ func (d *Dirble) Countries() (*Countries, error) {
 	return &c, nil
 }
 
-func (d *Dirble) CountriesStations(code string, id int, all bool, page, perPage, offset *int) (*CategoryStations, error) {
+func (d *Dirble) CountriesStations(code string, all bool, page, perPage, offset *int) (*CategoryStations, error) {
 	var err error
 	var u *url.URL
 	if u, err = url.Parse(APIBase); err != nil {
