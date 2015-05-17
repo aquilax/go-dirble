@@ -36,17 +36,14 @@ type Image struct {
 }
 
 type StationItem struct {
-	ID                 int
-	Name               string
-	Description        string
-	Country            string
-	Accepted           int
-	Added              time.Time
-	Website            string
-	CurrentSongReverse *string `json:"currentsong_reverse"`
-	Image              Image
-	Slug               string
-	DisableSongChecks  bool
+	ID         int
+	Name       string
+	Country    string
+	Image      Image
+	Slug       string
+	Website    string
+	Categories Categories
+	Streams    []Stream
 	Timestamped
 }
 
@@ -68,10 +65,8 @@ type Category struct {
 	ID          int
 	Title       string
 	Description string
-	URLId       interface{}
 	Slug        string
 	Ancestry    string
-	Position    interface{}
 	Timestamped
 }
 
