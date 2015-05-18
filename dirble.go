@@ -211,7 +211,7 @@ func (d *Dirble) StationSongHistory(id int) (*StationSongs, error) {
 	if u, err = url.Parse(APIBase); err != nil {
 		return nil, err
 	}
-	u.Path += "stations/" + strconv.Itoa(id) + "/song_history"
+	u.Path += "station/" + strconv.Itoa(id) + "/song_history"
 	q := u.Query()
 	q.Set("token", d.token)
 	u.RawQuery = q.Encode()
@@ -232,7 +232,7 @@ func (d *Dirble) StationSimilar(id int) (*Stations, error) {
 	if u, err = url.Parse(APIBase); err != nil {
 		return nil, err
 	}
-	u.Path += "stations/" + strconv.Itoa(id) + "/similar"
+	u.Path += "station/" + strconv.Itoa(id) + "/similar"
 	q := u.Query()
 	q.Set("token", d.token)
 	u.RawQuery = q.Encode()
